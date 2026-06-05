@@ -1,4 +1,3 @@
-import csv
 import os
 import time
 import uno
@@ -8,6 +7,9 @@ from com.sun.star.beans import PropertyValue
 REPO_DIR = os.getcwd()
 EXCEL_PATH = os.path.join(REPO_DIR, "HPL_Cost_Master.xlsx")
 CSV_PATH = os.path.join(REPO_DIR, "HPL_Prices.csv")
+
+DEBUG_ZERO_LIMIT = 10
+debug_zero_count = 0
 
 
 def prop(name, value):
@@ -59,7 +61,17 @@ def read_price(cell):
     if value is not None and value > 0:
         return float(value)
 
-    text = str(cell.String).replace("€", "").replace(" ", "").replace(",", ".").strip()
+    text = str(cell.String)
+    text = text.replace("€", "")
+    text = text.replace(" ", "")
+    text = text.replace("\xa0", "")
+    text = text.strip()
+
+    # Avrupa formatı: 11.589,62 -> 11589.62
+    if "," in text and "." in text:
+        text = text.replace(".", "").replace(",", ".")
+    else:
+        text = text.replace(",", ".")
 
     try:
         return float(text)
@@ -98,6 +110,8 @@ def write_inputs(sheet, model, direction, supply, ret, cooling, outdoor, preheat
 
 
 def add_price_line(doc, sheet, rows, model, direction, supply, ret, cooling, outdoor, preheater, bms):
+    global debug_zero_count
+
     write_inputs(sheet, model, direction, supply, ret, cooling, outdoor, preheater, bms)
 
     try:
@@ -111,10 +125,18 @@ def add_price_line(doc, sheet, rows, model, direction, supply, ret, cooling, out
     price_cell = sheet.getCellRangeByName("P3")
     price = read_price(price_cell)
 
-    if price <= 0:
-        return
-
     code = unit_code(model, direction, supply, ret, cooling, outdoor, preheater, bms)
+
+    if price <= 0:
+        if debug_zero_count < DEBUG_ZERO_LIMIT:
+            print(
+                "DEBUG ZERO PRICE | "
+                + f"Code={code} | "
+                + f"P3.Value={price_cell.Value} | "
+                + f"P3.String='{price_cell.String}'"
+            )
+            debug_zero_count += 1
+        return
 
     rows.append({
         "UnitCode": code,
@@ -180,6 +202,13 @@ def main():
                                                 supply, ret, cooling,
                                                 outdoor, preheater, bms
                                             )
+
+        if len(rows) == 0:
+            raise RuntimeError(
+                "Hiç fiyat satırı üretilemedi. "
+                "Excel formülleri GitHub/LibreOffice ortamında hesaplanamamış olabilir. "
+                "Bu nedenle HPL_Prices.csv dosyası güncellenmedi."
+            )
 
         with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
             f.write("UnitCode;Price;Currency\n")
