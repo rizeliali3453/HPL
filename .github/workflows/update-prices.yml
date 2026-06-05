@@ -1,0 +1,50 @@
+name: Update HPL Prices
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "HPL_Cost_Master.xlsx"
+      - "tools/export_prices.py"
+      - ".github/workflows/update-prices.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  export-prices:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install LibreOffice
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libreoffice python3-uno
+
+      - name: Start LibreOffice headless
+        run: |
+          libreoffice --headless --accept="socket,host=localhost,port=2002;urp;StarOffice.ComponentContext" --norestore --nofirststartwizard &
+          sleep 8
+
+      - name: Export HPL prices
+        run: |
+          python3 tools/export_prices.py
+
+      - name: Commit updated HPL_Prices.csv
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add HPL_Prices.csv
+
+          if git diff --cached --quiet; then
+            echo "No price changes to commit."
+          else
+            git commit -m "Update HPL_Prices.csv"
+            git push
+          fi
