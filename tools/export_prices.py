@@ -43,12 +43,6 @@ def connect_libreoffice():
     return desktop
 
 
-def get_named_cell(doc, name):
-    named_range = doc.NamedRanges.getByName(name)
-    referred = named_range.getReferredCells()
-    return referred.getCellByPosition(0, 0)
-
-
 def set_cell(sheet, address, value):
     cell = sheet.getCellRangeByName(address)
 
@@ -62,17 +56,15 @@ def set_cell(sheet, address, value):
 def read_price(cell):
     value = cell.Value
 
-    if value is None:
-        return 0.0
+    if value is not None and value > 0:
+        return float(value)
+
+    text = str(cell.String).replace("€", "").replace(" ", "").replace(",", ".").strip()
 
     try:
-        return float(value)
+        return float(text)
     except Exception:
-        text = str(cell.String).replace("€", "").replace(" ", "").replace(",", ".").strip()
-        try:
-            return float(text)
-        except Exception:
-            return 0.0
+        return 0.0
 
 
 def unit_code(model, direction, supply, ret, cooling, outdoor, preheater, bms):
@@ -105,12 +97,18 @@ def write_inputs(sheet, model, direction, supply, ret, cooling, outdoor, preheat
     set_cell(sheet, "I2", bms)
 
 
-def add_price_line(doc, sheet, price_cell, rows, model, direction, supply, ret, cooling, outdoor, preheater, bms):
+def add_price_line(doc, sheet, rows, model, direction, supply, ret, cooling, outdoor, preheater, bms):
     write_inputs(sheet, model, direction, supply, ret, cooling, outdoor, preheater, bms)
 
-    doc.calculateAll()
-    time.sleep(0.05)
+    try:
+        doc.enableAutomaticCalculation(True)
+    except Exception:
+        pass
 
+    doc.calculateAll()
+    time.sleep(0.2)
+
+    price_cell = sheet.getCellRangeByName("P3")
     price = read_price(price_cell)
 
     if price <= 0:
@@ -146,7 +144,6 @@ def main():
 
     try:
         sheet = doc.Sheets.getByName("MIF")
-        price_cell = get_named_cell(doc, "Price_Total")
 
         rows = []
 
@@ -159,7 +156,7 @@ def main():
                 for direction in directions:
                     for bms in bms_values:
                         add_price_line(
-                            doc, sheet, price_cell, rows,
+                            doc, sheet, rows,
                             model, direction,
                             7, 5, "0", 0, 0, bms
                         )
@@ -178,7 +175,7 @@ def main():
                                     for preheater in preheater_values:
                                         for bms in bms_values:
                                             add_price_line(
-                                                doc, sheet, price_cell, rows,
+                                                doc, sheet, rows,
                                                 model, direction,
                                                 supply, ret, cooling,
                                                 outdoor, preheater, bms
@@ -193,15 +190,6 @@ def main():
                     str(row["Price"]) + ";" +
                     str(row["Currency"]) + "\n"
                 )
-
-        print(f"HPL_Prices.csv oluşturuldu. Kayıt sayısı: {len(rows)}")
-
-    finally:
-        doc.close(True)
-
-
-if __name__ == "__main__":
-    main()
 
         print(f"HPL_Prices.csv oluşturuldu. Kayıt sayısı: {len(rows)}")
 
