@@ -184,15 +184,24 @@ def main():
                                                 outdoor, preheater, bms
                                             )
 
-with open(CSV_PATH, "w", newline="\n", encoding="utf-8") as f:
-    f.write("UnitCode;Price;Currency\n")
+        with open(CSV_PATH, "w", newline="", encoding="utf-8") as f:
+            f.write("UnitCode;Price;Currency\n")
 
-    for row in rows:
-        f.write(
-            str(row["UnitCode"]) + ";" +
-            str(row["Price"]) + ";" +
-            str(row["Currency"]) + "\n"
-        )
+            for row in rows:
+                f.write(
+                    str(row["UnitCode"]) + ";" +
+                    str(row["Price"]) + ";" +
+                    str(row["Currency"]) + "\n"
+                )
+
+        print(f"HPL_Prices.csv oluşturuldu. Kayıt sayısı: {len(rows)}")
+
+    finally:
+        doc.close(True)
+
+
+if __name__ == "__main__":
+    main()
 
         print(f"HPL_Prices.csv oluşturuldu. Kayıt sayısı: {len(rows)}")
 
